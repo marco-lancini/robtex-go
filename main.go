@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/marco-lancini/robtex-go"
+	"github.com/marco-lancini/robtex-go/robtex"
 )
 
 func main() {
