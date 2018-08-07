@@ -1,6 +1,6 @@
 # Go client for the Robtex API
 
-This library provides a little wrapper over the Robtex API (https://www.robtex.com/api/)
+This library provides a little wrapper over the Robtex API (https://www.robtex.com/api/).
 
 
 # Installation
