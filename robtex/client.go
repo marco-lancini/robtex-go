@@ -19,10 +19,11 @@ type Client struct {
 	BaseURL    *url.URL
 	UserAgent  string
 	httpClient *http.Client
+	APIKey		 string
 }
 
 // Constructor
-func NewClient(baseurl string, ua string) *Client {
+func NewClient(baseurl string, ua string, key string) *Client {
 	if ua == "" {
 		ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
 	}
@@ -31,6 +32,7 @@ func NewClient(baseurl string, ua string) *Client {
 		BaseURL:    u,
 		UserAgent:  ua,
 		httpClient: &http.Client{},
+		APIKey:			key,
 	}
 }
 
@@ -60,6 +62,13 @@ func (c *Client) newRequest(method, path string, body interface{}) *http.Request
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", c.UserAgent)
+
+	// Add api key to query
+	if c.APIKey != "" {
+		q := url.Values{}
+		q.Add("key", c.APIKey)
+		req.URL.RawQuery = q.Encode()
+	}
 
 	return req
 }

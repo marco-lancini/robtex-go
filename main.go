@@ -6,8 +6,10 @@ import (
 )
 
 func main() {
-
-	client := robtex.NewClient("https://freeapi.robtex.com", "")
+	// Load your API Key here
+	apiKey := "<YOUR-API-KEY>"
+	userAgent := ""
+	client := robtex.NewClient("https://freeapi.robtex.com", userAgent, apiKey)
 
 	ipInfo := client.IpQuery("8.8.8.8")
 	fmt.Println(ipInfo)
