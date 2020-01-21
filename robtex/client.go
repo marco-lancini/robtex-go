@@ -6,38 +6,41 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
+	// "log"
 	"net/http"
 	"net/url"
 	"strings"
 )
 
-// ---------------------------------------------------------------------------------------
-// CLIENT
-// ---------------------------------------------------------------------------------------
+// Client for interacting with Robtex API.
 type Client struct {
-	BaseURL    *url.URL
-	UserAgent  string
+	BaseURL *url.URL
+	// APIKey is the Robtex key that identifies the user making the requests.
+	APIKey string
+	// Agent is a string included in the User-Agent header of every request
+	Agent      string
 	httpClient *http.Client
 }
 
-// Constructor
-func NewClient(baseurl string, ua string) *Client {
-	if ua == "" {
-		ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36"
+// NewClient is constructor
+func NewClient(baseurl string, agent string, key string) *Client {
+	if agent == "" {
+		agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Firefox/58.0.1"
 	}
 	u, _ := url.Parse(baseurl)
 	return &Client{
 		BaseURL:    u,
-		UserAgent:  ua,
+		Agent:      agent,
 		httpClient: &http.Client{},
+		APIKey:     key,
 	}
 }
 
-func (c *Client) newRequest(method, path string, body interface{}) *http.Request {
+// sendRequest sends a HTTP request to the Robtex API.
+func (c *Client) sendRequest(method, path string, body io.Reader) (*http.Response, error) {
 	// Compose URL
 	rel := &url.URL{Path: path}
-	u := c.BaseURL.ResolveReference(rel)
+	targetURL := c.BaseURL.ResolveReference(rel)
 
 	// Write body
 	var buf io.ReadWriter
@@ -45,90 +48,130 @@ func (c *Client) newRequest(method, path string, body interface{}) *http.Request
 		buf = new(bytes.Buffer)
 		err := json.NewEncoder(buf).Encode(body)
 		if err != nil {
-			log.Fatal(fmt.Sprintf("Error while encoding request body: %s", err))
+			return nil, err
 		}
 	}
 
 	// New HTTP GET request
-	log.Printf("Calling: %s", u.String())
-	req, err := http.NewRequest(method, u.String(), buf)
+
+	req, err := http.NewRequest(method, targetURL.String(), body)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error while creating the request: %s", err))
+		return nil, err
 	}
+
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", c.UserAgent)
+	req.Header.Set("User-Agent", c.Agent)
 
-	return req
+	// Add api key to query
+	if c.APIKey != "" {
+		q := url.Values{}
+		q.Add("key", c.APIKey)
+		req.URL.RawQuery = q.Encode()
+	}
+	// log.Printf("Doing request: %s", targetURL.String())
+	return (c.httpClient).Do(req)
 }
 
-func (c *Client) do(req *http.Request) string {
-	// Perform request
-	resp, err := c.httpClient.Do(req)
+// IPQuery call api ipquery
+func (c *Client) IPQuery(ip string) (*IPInfo, error) {
+	path := fmt.Sprintf("/ipquery/%s", ip)
+	httpResp, err := c.sendRequest("GET", path, nil)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error while performing the request: %s", err))
+		return nil, err
 	}
-	defer resp.Body.Close()
+	result := &IPInfo{}
 
-	// Parse response body
-	contents, err := ioutil.ReadAll(resp.Body)
+	defer httpResp.Body.Close()
+	body, err := ioutil.ReadAll(httpResp.Body)
 	if err != nil {
-		log.Fatal(fmt.Sprintf("Error while parsing the response body: %s", err))
+		return nil, err
 	}
-
-	return string(contents)
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
-// ---------------------------------------------------------------------------------------
-// API ENDPOINTS
-// ---------------------------------------------------------------------------------------
-func (c *Client) IpQuery(ip string) IpInfo {
-	target_url := fmt.Sprintf("/ipquery/%s", ip)
-	req := c.newRequest("GET", target_url, nil)
-	resp := c.do(req)
-
-	var result IpInfo
-	err := json.Unmarshal([]byte(resp), &result)
+// AsQuery call api asquery
+func (c *Client) AsQuery(asn int) (*ASN, error) {
+	path := fmt.Sprintf("/asquery/%d", asn)
+	httpResp, err := c.sendRequest("GET", path, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
+	result := &ASN{}
 
-	return result
+	defer httpResp.Body.Close()
+	body, err := ioutil.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(body, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
-func (c *Client) AsQuery(asn int) ASN {
-	target_url := fmt.Sprintf("/asquery/%d", asn)
-	req := c.newRequest("GET", target_url, nil)
-	resp := c.do(req)
-
-	var result ASN
-	err := json.Unmarshal([]byte(resp), &result)
+// PDNSForward call api Passive DNS forward
+func (c *Client) PDNSForward(domain string) (*Pdns, error) {
+	path := fmt.Sprintf("/pdns/forward/%s", domain)
+	httpResp, err := c.sendRequest("GET", path, nil)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 
-	return result
-}
+	result := &Pdns{}
+	defer httpResp.Body.Close()
 
-func (c *Client) PassiveDNS(domain string) Pdns {
-	target_url := fmt.Sprintf("/pdns/forward/%s", domain)
-	req := c.newRequest("GET", target_url, nil)
-	resp := c.do(req)
-
-	result := Pdns{}
-	items := strings.Split(resp, "\n")
+	body, err := ioutil.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, err
+	}
+	items := strings.Split(string(body), "\n")
 	for _, i := range items {
 		if i != "" {
-			var temp DnsRecord
+			var temp DNSRecord
 			err := json.Unmarshal([]byte(i), &temp)
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 			result.Records = append(result.Records, temp)
 		}
 	}
 
-	return result
+	return result, nil
+}
+
+// PDNSReverse call api Passive DNS reverse
+func (c *Client) PDNSReverse(ip string) (*Pdns, error) {
+	path := fmt.Sprintf("/pdns/reverse/%s", ip)
+	httpResp, err := c.sendRequest("GET", path, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &Pdns{}
+	defer httpResp.Body.Close()
+	body, err := ioutil.ReadAll(httpResp.Body)
+	if err != nil {
+		return nil, err
+	}
+	items := strings.Split(string(body), "\n")
+	for _, i := range items {
+		if i != "" {
+			var temp DNSRecord
+			err := json.Unmarshal([]byte(i), &temp)
+			if err != nil {
+				return nil, err
+			}
+			result.Records = append(result.Records, temp)
+		}
+	}
+
+	return result, nil
 }
