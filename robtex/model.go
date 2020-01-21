@@ -8,11 +8,12 @@ type act struct {
 	T int64  `json:"t"`
 }
 
-type IpInfo struct {
+// IPInfo is ipquery data
+type IPInfo struct {
 	Status    string `json:"status"`
 	City      string `json:"city"`
 	Country   string `json:"country"`
-	As        int `json:"as"`
+	As        int    `json:"as"`
 	Asname    string `json:"asname"`
 	Whoisdesc string `json:"whoisdesc"`
 	Routedesc string `json:"routedesc"`
@@ -39,15 +40,15 @@ type ASN struct {
 // ---------------------------------------------------------------------------------------
 // PDNS
 // ---------------------------------------------------------------------------------------
-type DnsRecord struct {
-	Rrname     string `json:"rrname"`
-	Rrdata     string `json:"rrdata"`
-	Rrtype     string `json:"rrtype"`
-	Time_first int64  `json:"time_first"`
-	Time_last  int64  `json:"time_last"`
-	Count      int    `json:"count"`
+type DNSRecord struct {
+	Rrname    string `json:"rrname"`
+	Rrdata    string `json:"rrdata"`
+	Rrtype    string `json:"rrtype"`
+	TimeFirst int64  `json:"time_first"`
+	TimeLast  int64  `json:"time_last"`
+	Count     int    `json:"count"`
 }
 
 type Pdns struct {
-	Records []DnsRecord
+	Records []DNSRecord
 }
